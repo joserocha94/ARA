@@ -9,12 +9,12 @@ class Graph {
         int v;
         list<int> *adj;
 
-    Graph(int n) {
+    Graph (int n) {
         adj = new list<int> [n];
         v = n;
     }
 
-    void add_edge(int node_a, int node_b) {
+    void add_edge (int node_a, int node_b) {
         adj[node_a].push_back(node_b);
     }
 
