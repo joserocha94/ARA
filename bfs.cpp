@@ -9,17 +9,22 @@ struct Graph
     int v;
     list<int> *adj;
 
+    // graph-sized constructor
+    // to do: change to vector struct
     Graph(int n) 
     {
         adj = new list<int> [n];
         v = n;
     }
 
+    // add edge between two different nodes
+    // to do: add validation?
     void add_edge(int node_a, int node_b) 
     {
         adj[node_a].push_back(node_b);
     }
 
+    // print the graph as an adjacency list
     void print()
     {
         for(int i=0; i<v; i++)
