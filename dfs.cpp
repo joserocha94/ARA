@@ -4,6 +4,9 @@
 
 using namespace std;
 
+// simple definition of graph, represented as adjacency matrix;
+// defined by its size and his connections. add_edge creates new connections;
+// to do: how to handle disconnected graphs?
 struct Graph
 {
     int v;
@@ -33,6 +36,9 @@ struct Graph
     }
 };
 
+// simple depth-first search where each sucessor node it's 
+// printed if has not been visited
+// to do: try a non-recursive function
 void dfs (Graph g, int node, vector<bool> visited)
 {
     //  node visited, printed
@@ -41,14 +47,13 @@ void dfs (Graph g, int node, vector<bool> visited)
     
     // find sucessors
     vector<int>::iterator new_node;
-
+    
     for (new_node = g.adj[node].begin(); new_node != g.adj[node].end(); ++new_node)
     {
         if (!visited[*new_node])
             dfs(g, *new_node, visited);
     }
 }
-
 
 int main()
 {
