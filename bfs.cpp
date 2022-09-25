@@ -37,6 +37,9 @@ struct Graph
     }
 };
 
+// breath-first search implementation making use of a 
+// queue to store unexplored descendency and a vector
+// which keeps track of the visited/unvisited nodes
 void bfs (Graph g, int start_node, int size)
 {
     // mark all vertices as not visited
