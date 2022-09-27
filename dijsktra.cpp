@@ -33,6 +33,17 @@ struct Graph
     }
 };
 
+void dijkstra(Graph g, int source)
+{
+    vector<int> dist(g.v, 9999);
+    dist[source] = 0;
+
+    for(int i=0; i<g.v; i++)
+        printf("\t %d", dist[i]);
+
+
+}
+
 
 int main()
 {
@@ -43,6 +54,9 @@ int main()
     g.add_edge(1, 3, 5);
     
     g.print();
+    printf("\n");
+
+    dijkstra(g, 0);
     printf("\n");
 
     return 0;
