@@ -54,7 +54,6 @@ void print_list(list<int> queue)
     cout << endl;
 }
 
-
 // function to find the minimum distance for every node
 // stored. this is being done several times
 // so we should implement a priority_queue in the project
@@ -74,18 +73,15 @@ int min(list<int> queue, vector<int> distances)
     return index;
 }
 
-
 // implementation of Dijkstra's algorithm to find minimum distances
 // rule: if d[v] > d[u] + l(u,v) 
 //          d[v] := d[u] + l(u,v);
 void dijkstra(Graph g, int source)
 {
-
     // initialize all the distances with a max default value
     // the source node has distance equals to zero
     vector<int> dist(g.v, 9999);
     dist[source] = 0;
-
 
     // create a queue to keep all the vertices 
     // keeping track of the distances during execution
@@ -94,31 +90,26 @@ void dijkstra(Graph g, int source)
     for(int i=0; i<g.v; i++) 
         queue.push_back(i);
     
-
     while (queue.size())
     {    
         // find minimum element on the queue  
-        int minimum = min(queue, dist); 
-        
+        int minimum = min(queue, dist);        
 
         // remove it
         for (list<int>::iterator it = queue.begin(); it != queue.end(); ++it)
             if (*it == minimum) 
                 it = queue.erase(it);
-        
-     
+            
         // foreach uv from that connects the choosen node
         // we update the distance (relaxation process)
         for (auto it:g.adj[minimum])
             if (dist[it.first] > dist[minimum] + it.second)
                 dist[it.first] = dist[minimum] + it.second; 
         
-
         cout << endl;
         print_list(queue);     
     }
 }
-
 
 int main()
 {
