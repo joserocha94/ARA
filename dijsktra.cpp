@@ -3,9 +3,7 @@
 #include <vector>
 #include <bits/stdc++.h>
 
-
 using namespace std;
-
 
 // Graph struct to discretize the problem;
 // representation based on an adjacency list
