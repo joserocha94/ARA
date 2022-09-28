@@ -45,12 +45,10 @@ struct Graph
 // debug 
 void print_list(list<int> queue)
 {
-    cout << endl;
-    
+    cout << endl;  
     printf("[Queue]:");
     for (auto it = queue.begin(); it != queue.end(); ++it)
         cout << "\t" << *it;
-
     cout << endl;
 }
 
