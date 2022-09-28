@@ -3,6 +3,7 @@
 #include <vector>
 #include <bits/stdc++.h>
 
+
 using namespace std;
 
 
@@ -43,16 +44,15 @@ struct Graph
     }
 };
 
-// debug
-void print_list(list<pair<int,int>> queue)
+// debug 
+void print_list(list<int> queue)
 {
     cout << endl;
-    cout << endl;
     
-    list<pair<int,int>>::iterator it;
-    for (it = queue.begin(); it != queue.end(); ++it)
-        cout << "(" << (*it).first << ";" << (*it).second << ") ";
-    
+    printf("[Queue]:");
+    for (auto it = queue.begin(); it != queue.end(); ++it)
+        cout << "\t" << *it;
+
     cout << endl;
 }
 
@@ -60,19 +60,19 @@ void print_list(list<pair<int,int>> queue)
 // function to find the minimum distance for every node
 // stored. this is being done several times
 // so we should implement a priority_queue in the project
-// to do: that curr over there makes me cry
-int min(vector<int> queue)
+int min(list<int> queue, vector<int> distances)
 {
     int distance = 9999;
     int index = 0;
 
-    for (int i=0; i < queue.size(); i++)
-        if (queue[i] < distance)
-        {
-            distance = queue[i];
-            index = i;
+    for (list<int>::iterator it = queue.begin(); it != queue.end(); ++it)
+    {
+        if (distances[*it] < distance)
+        {    
+            distance = distances[*it];
+            index = *it; 
         }
-
+    }
     return index;
 }
 
@@ -89,38 +89,36 @@ void dijkstra(Graph g, int source)
     dist[source] = 0;
 
 
-    for(int i=0; i<g.v; i++)
-        printf("\t %d", dist[i]);
-
-
     // create a queue to keep all the vertices 
     // keeping track of the distances during execution
     // to do: change this to a priority queue to avoid search
-    list<pair<int,int>> queue;
+    list<int> queue;
     for(int i=0; i<g.v; i++) 
-        for (auto it:g.adj[i])
-            queue.push_back(it);
+        queue.push_back(i);
+    
 
-    print_list(queue);
-    printf("\n>>> min found at position %d\n", min(dist));
-
-
-    // to do: remove from list
-
-    // foreach uv from the founded node
-    for (auto it:g.adj[min(dist)])
+    while (queue.size())
     {    
-        cout << "(" << it.first << ";" << it.second << ") ";    
-        if (it.second < dist[it.first])
-            dist[it.first] = it.second;
+        // find minimum element on the queue  
+        int minimum = min(queue, dist); 
+        
+
+        // remove it
+        for (list<int>::iterator it = queue.begin(); it != queue.end(); ++it)
+            if (*it == minimum) 
+                it = queue.erase(it);
+        
+     
+        // foreach uv from that connects the choosen node
+        // we update the distance (relaxation process)
+        for (auto it:g.adj[minimum])
+            if (dist[it.first] > dist[minimum] + it.second)
+                dist[it.first] = dist[minimum] + it.second; 
+        
+
+        cout << endl;
+        print_list(queue);     
     }
-
-    cout << endl;
-    for(int i=0; i<g.v; i++)
-        printf("\t %d", dist[i]);
-
-    print_list(queue);
-
 }
 
 
@@ -128,9 +126,9 @@ int main()
 {
     Graph g(4);
 
-    g.add_edge(0, 1, 5);
+    g.add_edge(0, 1, 8);
     g.add_edge(0, 2, 5);
-    g.add_edge(1, 3, 5);
+    g.add_edge(1, 3, 2);
     
     g.print();
     cout << endl;
