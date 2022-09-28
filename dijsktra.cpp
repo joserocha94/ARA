@@ -43,7 +43,7 @@ struct Graph
     }
 };
 
-
+// debug
 void print_list(list<pair<int,int>> queue)
 {
     cout << endl;
@@ -100,11 +100,27 @@ void dijkstra(Graph g, int source)
     for(int i=0; i<g.v; i++) 
         for (auto it:g.adj[i])
             queue.push_back(it);
+
+    print_list(queue);
+    printf("\n>>> min found at position %d\n", min(dist));
+
+
+    // to do: remove from list
+
+    // foreach uv from the founded node
+    for (auto it:g.adj[min(dist)])
+    {    
+        cout << "(" << it.first << ";" << it.second << ") ";    
+        if (it.second < dist[it.first])
+            dist[it.first] = it.second;
+    }
+
+    cout << endl;
+    for(int i=0; i<g.v; i++)
+        printf("\t %d", dist[i]);
+
     print_list(queue);
 
-    printf("\nmin found at position %d", min(dist));
-   
-    // to do
 }
 
 
@@ -117,10 +133,10 @@ int main()
     g.add_edge(1, 3, 5);
     
     g.print();
-    printf("\n");
+    cout << endl;
 
     dijkstra(g, 0);
-    printf("\n");
+    cout << endl;
 
     return 0;
 }
