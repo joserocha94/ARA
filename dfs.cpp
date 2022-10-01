@@ -62,6 +62,7 @@ int main()
     vector<bool> visited;
     visited.resize(g.v);
 
+    // to do_ i think this only works because it's a digraph
     g.add_edge(0, 1);
     g.add_edge(0, 2);
     g.add_edge(1, 2);
