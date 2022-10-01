@@ -79,6 +79,7 @@ int main()
 {
     Graph g(4);
 
+    // i think this only works because it's a digraph
     g.add_edge(0, 1);
     g.add_edge(0, 2);
     g.add_edge(1, 2);
