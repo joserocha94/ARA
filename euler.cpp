@@ -4,8 +4,9 @@
 
 using namespace std;
 
-// add_egde should add the edge in the both vertices
+// add_egde should add the edge in the both vertices (graph vs digraph)
 // create and delete edge method doing the opposite
+// how about cycles?
 struct Graph
 {
     int v;
