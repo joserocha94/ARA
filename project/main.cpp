@@ -55,6 +55,7 @@ int minimum(std::vector<int> queue, std::vector<int> distances)
     return current_index;
 }
 
+// heap struct...
 void dijkstra(Graph g, Node s)
 {
     // every node has a distance of 999 (infinite)
