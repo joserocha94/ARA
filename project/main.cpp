@@ -39,7 +39,7 @@ struct Graph
 
 // for every node left on the queue, get the one 
 // with less distance to the source and return its index
-// doesn't return the node, returns the queue index
+// shortest-paths vs shortest-widest-paths vs widest-shortest-paths
 int minimum(std::vector<int> queue, std::vector<int> distances)
 {
     int current_distance = EDGE_MAX_DISTANCE;
