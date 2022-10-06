@@ -36,7 +36,6 @@ struct Graph
     }
 };
 
-
 // for every node left on the queue, get the one 
 // with less distance to the source and return its index
 // doesn't return the node, returns the queue index
@@ -57,7 +56,6 @@ int minimum(std::vector<int> queue, std::vector<int> distances)
 
 void dijkstra(Graph g, Node s)
 {
-
     // every node has a distance of 999 (infinite)
     // source node has distance 0
     std::vector<int> distances;
@@ -71,7 +69,6 @@ void dijkstra(Graph g, Node s)
     std::vector<int> queue;
     for(int i=0; i<g.n; i++)
         queue.push_back(i);
-
 
     // while there are still nodes in the queue
     printf("\n");
@@ -90,7 +87,6 @@ void dijkstra(Graph g, Node s)
 
 int main() // u0, w1, v2, x3
 {
-
     Edge e1 = {0, 1, 5, 2};
     Edge e2 = {0, 2, 10, 2};
     Edge e3 = {2, 1, 20, 4};
@@ -115,7 +111,6 @@ int main() // u0, w1, v2, x3
     g.nodes.push_back(x);
 
     g.print();
-
     dijkstra(g, v);
 
     return 0;
