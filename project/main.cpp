@@ -5,7 +5,7 @@
 #define GRAPH_MAX_SIZE 4
 #define EDGE_MAX_DISTANCE 999
 
-// structs will be definided in a header file
+// header file
 struct Edge
 {
     int source;
