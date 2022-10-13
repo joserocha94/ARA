@@ -63,7 +63,7 @@ struct Calendar
 
 
 std::vector<std::vector<std::pair<int,int>>> dist;
-Graph g; 
+Graph G; 
 Calendar scheduler;
 
 
@@ -90,14 +90,14 @@ void print_distances(std::vector<std::vector<std::pair<int,int>>> dist)
 
 void awake_node(int node_index)
 {
-    // add new events
-    for (int i=0; i < g.nodes[node_index].out_edges.size(); i++)
+    // add new eventG
+    for (int i=0; i < G.nodes[node_index].out_edges.size(); i++)
     {
         Event e = {
-            g.nodes[node_index].out_edges[i].source, 
-            g.nodes[node_index].out_edges[i].target, 
-            g.nodes[node_index].out_edges[i].width, 
-            g.nodes[node_index].out_edges[i].length, 
+            G.nodes[node_index].out_edges[i].source, 
+            G.nodes[node_index].out_edges[i].target, 
+            G.nodes[node_index].out_edges[i].width, 
+            G.nodes[node_index].out_edges[i].length, 
         };
         scheduler.list.push_back(e);
     }
@@ -122,11 +122,13 @@ void init()
 // doesn't return the node, returns the queue index
 int ws_minimum(std::vector<int> queue, std::vector<std::pair<int,int>> distances)
 {
+    printf("\n\nvou percorrer toda a queue e encontrar o index com vlor minimo\n");
+
     int current_length = EDGE_MAX_LENGHT;
     int current_width = EDGE_MAX_WIDTH;
     int current_index = 0;
 
-    for (int i=0; i<distances.size(); i++) 
+    for (int i=0; i<queue.size(); i++) 
     {
         /*
         printf("\nrun %d ---- (%4d,%4d) vs (%4d,%4d)", 
@@ -136,13 +138,20 @@ int ws_minimum(std::vector<int> queue, std::vector<std::pair<int,int>> distances
             current_width, 
             current_length);
         */
+        printf("\n%d current_length %3d vs %3d \t current_width %3d vs %3d", i,
+                current_length,
+                distances[queue[i]].second,
+                current_width, 
+                distances[queue[i]].first);
 
         // se distancia é menor ganha imediatamente
-        if (current_length > distances[i].second || (current_length == distances[i].second && current_width < distances[i].first)) 
+        if (current_length > distances[queue[i]].second || (current_length == distances[queue[i]].second && current_width < distances[queue[i]].first)) 
         {
-            current_length = distances[i].second;
-            current_width = distances[i].first;
+            current_length = distances[queue[i]].second;
+            current_width = distances[queue[i]].first;
             current_index = i;
+
+            printf("\t * encontrei length=%d width=%d no index %d", current_length, current_width, current_index);
         } /*
         if (current_length == distances[i].second && current_width < distances[i].first)
         {
@@ -152,111 +161,58 @@ int ws_minimum(std::vector<int> queue, std::vector<std::pair<int,int>> distances
             current_index = i;       
         } */
     }
-
     return current_index;
 }
 
 
-// attempt to implement Dijkstra algorithm
-// priority queue / min heap missing
+// Dijkstra algorithm
+// implementing a source to all search
 void dijkstra(Graph g, Node s)
 {
-    // every node has a distance of 999 (infinite)
-    // source node has distance 0
-    std::vector<int> distances;
-    for (int i=0; i<g.n; i++)
-        distances.push_back(EDGE_MAX_LENGHT);
-    distances[s.id] = 0;
-    for (int i=0; i<g.n; i++)
-        printf("\npos:%d dist:%d", i, distances[i]);
-
-    // add all graph vertices to the queue
-    std::vector<int> queue;
-    for(int i=0; i<g.n; i++)
-        queue.push_back(i);
-
-
-    // while there are still nodes in the queue
-    printf("\n");
-    while (queue.size())
-    {
-        printf("\nelements %d", queue.size());
-        queue.pop_back();
-
-        //find node with less distance to source
-        int min = 0; //minimum(queue, distances);
-        printf("\nmin node %d at queue index %d", queue[min], min);        
-    }
-
-    printf("\n");
-}
-
-
-void bidirectional_dijkstra(Graph g, Node s, Node t)
-{
-    printf("\nBidirectional Dijkstra from %d to %d", s.id, t.id);
+    printf("\nDijkstra from %d ", s.id);
     printf("\n");
 
-    std::vector<int> qs;
-    std::vector<int> qt;
+    std::vector<int> q;
+    std::vector<int> q_parent;
+    std::vector<std::pair<int,int>> q_distance;
 
-    std::vector<std::pair<int,int>> qs_distance;
-    std::vector<std::pair<int,int>> qt_distance;
-    std::vector<int> qs_parent;
-    std::vector<int> qt_parent;
-
-    bool found = false;
     int k = 0;
 
     // initialize everything
     for (int i=0; i<g.n; i++)
     {
-        qs.push_back(g.nodes[i].id);
-        qt.push_back(g.nodes[i].id);
-        qs_parent.push_back(-1);
-        qt_parent.push_back(-1);
-        qs_distance.push_back(std::make_pair(EDGE_MAX_WIDTH, EDGE_MAX_LENGHT));
-        qt_distance.push_back(std::make_pair(EDGE_MAX_WIDTH, EDGE_MAX_LENGHT));
+        q.push_back(g.nodes[i].id);
+        q_parent.push_back(-1);
+        q_distance.push_back(std::make_pair(EDGE_MAX_WIDTH, EDGE_MAX_LENGHT));
     }
 
     // for itself, widths and enghts are zero
-    qs_distance[s.id].first = 0; qs_distance[s.id].second = 0;
-    qt_distance[t.id].first = 0; qt_distance[t.id].second = 0;
+    q_distance[s.id].first = 0; q_distance[s.id].second = 0;
 
 
-    while (qs.size())
+    while (q.size())
     {
 
         printf("\n================================");
         printf("\n============== %d =============== \n", k);
 
         printf("\n\tQs");
-        for (int i=0; i < qs.size(); i++)
-            printf("\t%d", qs[i]);  
-
-        printf("\n\tQt");
-        for (int i=0; i < qt.size(); i++)
-            printf("\t%d", qt[i]);  
+        for (int i=0; i < q.size(); i++)
+            printf("\t%d", q[i]);  
 
         printf("\n\td-Qs");
         for (int i=0; i<g.n; i++)
-            printf("\t(%4d,%4d)", qs_distance[i].first, qs_distance[i].second);
-        printf("\n\td-Qt");
-        for (int i=0; i<g.n; i++)
-            printf("\t(%4d,%4d)", qt_distance[i].first, qt_distance[i].second);
+            printf("\t(%4d,%4d)", q_distance[i].first, q_distance[i].second);
     
         printf("\n\tp-Qs");
         for (int i=0; i<g.n; i++)
-            printf("\t%d", qs_parent[i]);  
-        printf("\n\tp-Qt");
-        for (int i=0; i<g.n; i++)
-            printf("\t%d", qt_parent[i]);  
+            printf("\t%d", q_parent[i]);  
 
 
         // trata da queue Qs
-        int index = ws_minimum(qs, qs_distance); 
-        int u = qs[index];
-        printf("\n>>> qs: %d\n", u);
+        int index = ws_minimum(q, q_distance); 
+        int u = q[index];
+        printf("\n>>> node at work: %d at index %d\n", u, index);
 
         // relaxar cada aresta uv
         for (int i=0; i<g.nodes[u].out_edges.size(); i++)
@@ -270,36 +226,32 @@ void bidirectional_dijkstra(Graph g, Node s, Node t)
                 g.nodes[u].out_edges[i].width, 
                 g.nodes[u].out_edges[i].length);
             
-            printf("\n\t -> %d vs %d", qs_distance[u].first, uv_width);
+            printf("\n\t -> %d vs %d", q_distance[u].first, uv_width);
 
             // se lenght mais curta do que está nas distancias, actualiza
             // fica com o menor valor para a width
-            if (qs_distance[v].second > qs_distance[u].second + uv_lenght)
+            if (q_distance[v].second > q_distance[u].second + uv_lenght)
             {
                 printf("*\n");
-                qs_distance[v].second = qs_distance[u].second + uv_lenght;
+                q_distance[v].second = q_distance[u].second + uv_lenght;
 
 
-                if (qs_parent[u] != -1)
+                if (q_parent[u] != -1)
                 {
-                    printf("\n\taqui %d vs %d ", qs_distance[u].first, uv_width);
-                    qs_distance[v].first = qs_distance[u].first < uv_width ? qs_distance[u].first : uv_width;
-                    printf("\tganha %d", qs_distance[v].first);
+                    printf("\n\taqui %d vs %d ", q_distance[u].first, uv_width);
+                    q_distance[v].first = q_distance[u].first < uv_width ? q_distance[u].first : uv_width;
+                    printf("\tganha %d", q_distance[v].first);
                 }
                 else
-                    qs_distance[v].first = uv_width;
+                    q_distance[v].first = uv_width;
                 
-                qs_parent[v] = u;
+                q_parent[v] = u;
             }
         }
 
         //remove nó da queue
-        qs.erase(qs.begin() + index);
-
-
-        // trata da queue Qt
-        //u = ws_minimum(qt, qt_distance);
-        //printf("\n>>>qt: %d", u);
+        q.erase(q.begin() + index);
+        printf("\n>>> remove nodex at index %d of the queue", index);
 
         printf("\n");
         k++;
@@ -329,23 +281,25 @@ int main() // u0, w1, v2, x3
     w.out_edges.push_back(e4);
     v.out_edges.push_back(e5);
     
-    g.n = 4;
-    g.nodes.push_back(u);
-    g.nodes.push_back(w);
-    g.nodes.push_back(v);
-    g.nodes.push_back(x);
+    G.n = 4;
+    G.nodes.push_back(u);
+    G.nodes.push_back(w);
+    G.nodes.push_back(v);
+    G.nodes.push_back(x);
 
-    g.print();
+    G.print();
     printf("\n");
-    g.print_out();
+    G.print_out();
 
     int current_node = 0;
     int loop = 0;
 
+/*
     // adicionar evento de anuncio
     awake_node(current_node);
   
-    while (scheduler.list.size() && loop < 0)
+  
+    while (scheduler.list.size())
     {
         printf("\n================================");
         printf("\n============== %d =============== \n", loop);
@@ -387,9 +341,9 @@ int main() // u0, w1, v2, x3
         scheduler.list.erase(scheduler.list.begin());
         loop++;
     }
+    */
     
-    printf("\nSource to destination");
-    bidirectional_dijkstra(g, u, x);
+    dijkstra(G, u);
     printf("\n");
 
 
