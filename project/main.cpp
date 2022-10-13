@@ -3,6 +3,7 @@
 #include <iostream>
 #include <ctime>  
 
+
 #define GRAPH_MAX_SIZE 4
 #define EDGE_MAX_WIDTH 999
 #define EDGE_MAX_LENGHT 999
@@ -76,21 +77,19 @@ void print_calendar(Calendar c)
         << std::endl;
 }
 
-
 void print_distances(std::vector<std::vector<std::pair<int,int>>> dist)
 {
     for (int i=0; i<dist.size(); i++)
     {
         printf("\n");
         for (int j=0; j<GRAPH_MAX_SIZE; j++)
-            printf("\t(%4d; %4d)", dist[i][j].first, dist[i][j].second); //printf("%05d", i);
+            printf("\t(%4d; %4d)", dist[i][j].first, dist[i][j].second); 
     }
 }
 
-
 void awake_node(int node_index)
 {
-    // add new eventG
+    // add new event
     for (int i=0; i < G.nodes[node_index].out_edges.size(); i++)
     {
         Event e = {
@@ -111,8 +110,8 @@ void awake_node(int node_index)
 void init()
 {
     dist.resize(GRAPH_MAX_SIZE);
-    for (int i=0; i<dist.size(); i++)
-        for (int j=0; j<GRAPH_MAX_SIZE; j++)
+    for (int i=0; i < dist.size(); i++)
+        for (int j=0; j < GRAPH_MAX_SIZE; j++)
             dist[i].push_back(std::make_pair(EDGE_MAX_WIDTH, EDGE_MAX_LENGHT));
 
 }
@@ -122,29 +121,18 @@ void init()
 // doesn't return the node, returns the queue index
 int ws_minimum(std::vector<int> queue, std::vector<std::pair<int,int>> distances)
 {
-
     int current_length = EDGE_MAX_LENGHT;
     int current_width = EDGE_MAX_WIDTH;
     int current_index = 0;
 
     for (int i=0; i<queue.size(); i++) 
     {
-        /*
-        printf("\n%d current_length %3d vs %3d \t current_width %3d vs %3d", i,
-                current_length,
-                distances[queue[i]].second,
-                current_width, 
-                distances[queue[i]].first);
-        */
-
-        // se distancia é menor ganha imediatamente
         if (current_length > distances[queue[i]].second || 
            (current_length == distances[queue[i]].second && current_width < distances[queue[i]].first)) 
         {
             current_length = distances[queue[i]].second;
             current_width = distances[queue[i]].first;
             current_index = i;
-
         }
     }
     return current_index;
@@ -152,7 +140,6 @@ int ws_minimum(std::vector<int> queue, std::vector<std::pair<int,int>> distances
 
 void get_parent(std::vector<int> parent, int start)
 {
-
     if (parent[start] != -1)
     {
         printf(" <- %d", parent[start]);
@@ -160,17 +147,24 @@ void get_parent(std::vector<int> parent, int start)
     }
 }
 
+void get_routes(std::vector<std::pair<int,int>> q_distance, std::vector<int> q_parent)
+{
+    for (int i=0; i<G.n; i++)
+        if (q_distance[i].first != EDGE_MAX_LENGHT && q_distance[i].second != EDGE_MAX_WIDTH)
+        {
+            printf("\n\t(%2d,%3d) : %d",  q_distance[i].first, q_distance[i].second, i);
+            get_parent(q_parent, i);
+        }
+}
+
 // Dijkstra algorithm
 // implementing a source to all search
 void dijkstra(Graph g, Node s)
 {
-    printf("\nDijkstra from %d ", s.id);
-
+    printf("\nDijkstra from %d \n", s.id);
     std::vector<int> q;
     std::vector<int> q_parent;
     std::vector<std::pair<int,int>> q_distance;
-
-    int k = 0;
 
     // initialize everything
     for (int i=0; i<g.n; i++)
@@ -182,7 +176,6 @@ void dijkstra(Graph g, Node s)
 
     // for itself, widths and enghts are zero
     q_distance[s.id].first = 0; q_distance[s.id].second = 0;
-
 
     while (q.size())
     {
@@ -201,11 +194,9 @@ void dijkstra(Graph g, Node s)
         printf("\n\tp-Qs");
         for (int i=0; i<g.n; i++)
             printf("\t%d", q_parent[i]);  
-        
-        k++;
         */
 
-        // trata da queue Qs
+        // obter o nó cuja distância é menor
         int index = ws_minimum(q, q_distance); 
         int u = q[index];
 
@@ -221,27 +212,16 @@ void dijkstra(Graph g, Node s)
             if (q_distance[v].second > q_distance[u].second + uv_lenght)
             {
                 q_distance[v].second = q_distance[u].second + uv_lenght;
-
-                if (q_parent[u] != -1)
-
-                    q_distance[v].first = q_distance[u].first < uv_width ? q_distance[u].first : uv_width;
-                else
-                    q_distance[v].first = uv_width;
-                
+                q_distance[v].first = q_distance[u].first < uv_width && q_parent[u] != -1 ? q_distance[u].first : uv_width;
                 q_parent[v] = u;
             }
         }
-
         //remove nó da queue
         q.erase(q.begin() + index);
     }
 
     //show path for each node
-    for (int i=0; i<G.n; i++)
-    {
-        printf("\n(%3d,%3d) : %d",  q_distance[i].first, q_distance[i].second, i);
-        get_parent(q_parent, i);
-    }
+    get_routes(q_distance, q_parent);
 }
 
 int main() // u0, w1, v2, x3
@@ -279,9 +259,8 @@ int main() // u0, w1, v2, x3
 
     int current_node = 0;
     int loop = 0;
-
     
-    dijkstra(G, v);
+    dijkstra(G, w);
     printf("\n");
 
 
