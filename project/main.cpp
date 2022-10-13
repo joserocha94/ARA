@@ -122,7 +122,6 @@ void init()
 // doesn't return the node, returns the queue index
 int ws_minimum(std::vector<int> queue, std::vector<std::pair<int,int>> distances)
 {
-    printf("\n\nvou percorrer toda a queue e encontrar o index com vlor minimo\n");
 
     int current_length = EDGE_MAX_LENGHT;
     int current_width = EDGE_MAX_WIDTH;
@@ -131,35 +130,22 @@ int ws_minimum(std::vector<int> queue, std::vector<std::pair<int,int>> distances
     for (int i=0; i<queue.size(); i++) 
     {
         /*
-        printf("\nrun %d ---- (%4d,%4d) vs (%4d,%4d)", 
-            i, 
-            distances[i].first, 
-            distances[i].second, 
-            current_width, 
-            current_length);
-        */
         printf("\n%d current_length %3d vs %3d \t current_width %3d vs %3d", i,
                 current_length,
                 distances[queue[i]].second,
                 current_width, 
                 distances[queue[i]].first);
+        */
 
         // se distancia é menor ganha imediatamente
-        if (current_length > distances[queue[i]].second || (current_length == distances[queue[i]].second && current_width < distances[queue[i]].first)) 
+        if (current_length > distances[queue[i]].second || 
+           (current_length == distances[queue[i]].second && current_width < distances[queue[i]].first)) 
         {
             current_length = distances[queue[i]].second;
             current_width = distances[queue[i]].first;
             current_index = i;
 
-            printf("\t * encontrei length=%d width=%d no index %d", current_length, current_width, current_index);
-        } /*
-        if (current_length == distances[i].second && current_width < distances[i].first)
-        {
-            printf(" found at %d", i);
-            current_length = distances[i].second;
-            current_width = distances[i].first;
-            current_index = i;       
-        } */
+        }
     }
     return current_index;
 }
@@ -179,7 +165,6 @@ void get_parent(std::vector<int> parent, int start)
 void dijkstra(Graph g, Node s)
 {
     printf("\nDijkstra from %d ", s.id);
-    printf("\n");
 
     std::vector<int> q;
     std::vector<int> q_parent;
@@ -201,7 +186,7 @@ void dijkstra(Graph g, Node s)
 
     while (q.size())
     {
-
+        /*
         printf("\n================================");
         printf("\n============== %d =============== \n", k);
 
@@ -216,12 +201,13 @@ void dijkstra(Graph g, Node s)
         printf("\n\tp-Qs");
         for (int i=0; i<g.n; i++)
             printf("\t%d", q_parent[i]);  
-
+        
+        k++;
+        */
 
         // trata da queue Qs
         int index = ws_minimum(q, q_distance); 
         int u = q[index];
-        printf("\n>>> node at work: %d at index %d\n", u, index);
 
         // relaxar cada aresta uv
         for (int i=0; i<g.nodes[u].out_edges.size(); i++)
@@ -230,27 +216,15 @@ void dijkstra(Graph g, Node s)
             int uv_lenght = g.nodes[u].out_edges[i].length;
             int uv_width = g.nodes[u].out_edges[i].width;
 
-            printf("\n\t target: %d (%d,%d)", 
-                g.nodes[u].out_edges[i].target, 
-                g.nodes[u].out_edges[i].width, 
-                g.nodes[u].out_edges[i].length);
-            
-            printf("\n\t -> %d vs %d", q_distance[u].first, uv_width);
-
             // se lenght mais curta do que está nas distancias, actualiza
             // fica com o menor valor para a width
             if (q_distance[v].second > q_distance[u].second + uv_lenght)
             {
-                printf("*\n");
                 q_distance[v].second = q_distance[u].second + uv_lenght;
 
-
                 if (q_parent[u] != -1)
-                {
-                    printf("\n\taqui %d vs %d ", q_distance[u].first, uv_width);
+
                     q_distance[v].first = q_distance[u].first < uv_width ? q_distance[u].first : uv_width;
-                    printf("\tganha %d", q_distance[v].first);
-                }
                 else
                     q_distance[v].first = uv_width;
                 
@@ -260,18 +234,13 @@ void dijkstra(Graph g, Node s)
 
         //remove nó da queue
         q.erase(q.begin() + index);
-        printf("\n>>> remove nodex at index %d of the queue", index);
+    }
 
-
-        //show path for each node
-        for (int i=0; i<G.n; i++)
-        {
-            printf("\n%d", i, i);
-            get_parent(q_parent, i);
-        }
-
-        printf("\n");
-        k++;
+    //show path for each node
+    for (int i=0; i<G.n; i++)
+    {
+        printf("\n(%3d,%3d) : %d",  q_distance[i].first, q_distance[i].second, i);
+        get_parent(q_parent, i);
     }
 }
 
@@ -311,56 +280,8 @@ int main() // u0, w1, v2, x3
     int current_node = 0;
     int loop = 0;
 
-/*
-    // adicionar evento de anuncio
-    awake_node(current_node);
-  
-  
-    while (scheduler.list.size())
-    {
-        printf("\n================================");
-        printf("\n============== %d =============== \n", loop);
-        print_calendar(scheduler);
-
-        print_distances(dist);
-
-        // validar distancia
-        printf("\n\n>>> analisar a distância de %d até %d", scheduler.list[0].event.source, scheduler.list[0].event.target);
-        printf("\n\t obtemos (%d,%d)", scheduler.list[0].event.width, scheduler.list[0].event.length);
-
-        // shortest-widest 
-        // escolher a maior widht
-        if (scheduler.list[0].event.width > dist[scheduler.list[0].event.source][scheduler.list[0].event.target].first)
-        {
-            printf("\n\t width é melhor, renova valor");
-            dist[scheduler.list[0].event.source][scheduler.list[0].event.target].first = scheduler.list[0].event.width;
-            dist[scheduler.list[0].event.source][scheduler.list[0].event.target].second = scheduler.list[0].event.length;
-        }
-
-        printf("\n");
-        print_distances(dist);
-        printf("\n");
-        
-        // novos anuncios
-        current_node = scheduler.list[0].event.target;
-        for (int i=0; i < g.nodes[current_node].out_edges.size(); i++)
-        {
-            Event e = {
-                g.nodes[current_node].out_edges[i].source, 
-                g.nodes[current_node].out_edges[i].target, 
-                g.nodes[current_node].out_edges[i].width, 
-                g.nodes[current_node].out_edges[i].length, 
-            };
-            scheduler.list.push_back(e);
-        }
-
-        //processa evento
-        scheduler.list.erase(scheduler.list.begin());
-        loop++;
-    }
-    */
     
-    dijkstra(G, u);
+    dijkstra(G, v);
     printf("\n");
 
 
