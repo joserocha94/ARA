@@ -3,11 +3,9 @@
 #include <iostream>
 #include <ctime>  
 
-
 #define GRAPH_MAX_SIZE 4
 #define EDGE_MAX_WIDTH 999
 #define EDGE_MAX_LENGHT 999
-
 
 struct Edge
 {
