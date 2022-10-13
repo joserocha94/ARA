@@ -3,9 +3,11 @@
 #include <iostream>
 #include <ctime>  
 
+
 #define GRAPH_MAX_SIZE 4
 #define EDGE_MAX_WIDTH 999
 #define EDGE_MAX_LENGHT 999
+
 
 struct Edge
 {
@@ -157,14 +159,18 @@ void get_routes(std::vector<std::pair<int,int>> q_distance, std::vector<int> q_p
 
 // Dijkstra algorithm
 // implementing a source to all search
+// pair<int,int> where [first=width]; [second=lenght]
 void dijkstra(Graph g, Node s)
 {
     printf("\nDijkstra from %d \n", s.id);
+
     std::vector<int> q;
     std::vector<int> q_parent;
     std::vector<std::pair<int,int>> q_distance;
 
-    // initialize everything
+    // initialization
+    // no one has parents at the begin
+    // lenght and width are infinite * to do: check this infinitive width 
     for (int i=0; i<g.n; i++)
     {
         q.push_back(g.nodes[i].id);
@@ -172,8 +178,9 @@ void dijkstra(Graph g, Node s)
         q_distance.push_back(std::make_pair(EDGE_MAX_WIDTH, EDGE_MAX_LENGHT));
     }
 
-    // for itself, widths and enghts are zero
-    q_distance[s.id].first = 0; q_distance[s.id].second = 0;
+    // for itself, widths and lenghts are zero
+    q_distance[s.id].first = 0; 
+    q_distance[s.id].second = 0;
 
     while (q.size())
     {
@@ -195,6 +202,7 @@ void dijkstra(Graph g, Node s)
         */
 
         // obter o nó cuja distância é menor
+        // devolve o index em que está o nó, é preciso ir buscá-lo
         int index = ws_minimum(q, q_distance); 
         int u = q[index];
 
@@ -214,11 +222,13 @@ void dijkstra(Graph g, Node s)
                 q_parent[v] = u;
             }
         }
+
         //remove nó da queue
         q.erase(q.begin() + index);
     }
 
-    //show path for each node
+    // iteração terminou
+    // show path for each node
     get_routes(q_distance, q_parent);
 }
 
@@ -260,7 +270,6 @@ int main() // u0, w1, v2, x3
     
     dijkstra(G, w);
     printf("\n");
-
 
     return 0;
 }
