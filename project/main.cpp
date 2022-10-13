@@ -164,6 +164,15 @@ int ws_minimum(std::vector<int> queue, std::vector<std::pair<int,int>> distances
     return current_index;
 }
 
+void get_parent(std::vector<int> parent, int start)
+{
+
+    if (parent[start] != -1)
+    {
+        printf(" <- %d", parent[start]);
+        get_parent(parent, parent[start]);
+    }
+}
 
 // Dijkstra algorithm
 // implementing a source to all search
@@ -252,6 +261,14 @@ void dijkstra(Graph g, Node s)
         //remove nó da queue
         q.erase(q.begin() + index);
         printf("\n>>> remove nodex at index %d of the queue", index);
+
+
+        //show path for each node
+        for (int i=0; i<G.n; i++)
+        {
+            printf("\n%d", i, i);
+            get_parent(q_parent, i);
+        }
 
         printf("\n");
         k++;
