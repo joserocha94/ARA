@@ -2,6 +2,10 @@
 #include <vector>
 #include <iostream>
 #include <ctime>  
+#include <sys/time.h>
+#include <chrono> 
+#include <thread>
+
 
 
 #define GRAPH_MAX_SIZE 4
@@ -54,6 +58,7 @@ struct Graph
 
 struct Event
 {
+    double time;
     Edge event;
 };
 
@@ -64,16 +69,25 @@ struct Calendar
 
 
 std::vector<std::vector<std::pair<int,int>>> dist;
-Graph G; 
-Calendar scheduler;
+std::vector<std::vector<int>> parent;
 
+Graph G; 
+Calendar C;
+
+
+double get_random()
+{
+    return ((double) rand() / (RAND_MAX));
+}
 
 void print_calendar(Calendar c)
 {
+    printf("\n");
     for (int i=0; i<c.list.size(); i++)
         std::cout << "\tevento " << i << ": ("
         << c.list[i].event.source << " > "
-        << c.list[i].event.target << ")"
+        << c.list[i].event.target << ") : "
+        << c.list[i].time 
         << std::endl;
 }
 
@@ -85,25 +99,6 @@ void print_distances(std::vector<std::vector<std::pair<int,int>>> dist)
         for (int j=0; j<GRAPH_MAX_SIZE; j++)
             printf("\t(%4d; %4d)", dist[i][j].first, dist[i][j].second); 
     }
-}
-
-void awake_node(int node_index)
-{
-    // add new event
-    for (int i=0; i < G.nodes[node_index].out_edges.size(); i++)
-    {
-        Event e = {
-            G.nodes[node_index].out_edges[i].source, 
-            G.nodes[node_index].out_edges[i].target, 
-            G.nodes[node_index].out_edges[i].width, 
-            G.nodes[node_index].out_edges[i].length, 
-        };
-        scheduler.list.push_back(e);
-    }
-
-    // update distance to itself
-    dist[node_index][node_index].first = 0;
-    dist[node_index][node_index].second = 0;
 }
 
 // matrix with pairs width-length
@@ -157,6 +152,30 @@ void get_routes(std::vector<std::pair<int,int>> q_distance, std::vector<int> q_p
         }
 }
 
+// adds a new event to the calendar
+// fifo order, due to the event time
+void add_new_event(Event e)
+{    
+    bool spoted = false;
+
+    // se é menor que o atual, insere nesta posição
+    // as outras posições devem andar uma posição para a frente
+    for (int i = 0; i < C.list.size(); i++) 
+        if (e.time < C.list[i].time)
+        {
+            C.list.insert(C.list.begin() + i, e);
+            spoted = true;
+            break;
+        }
+
+    // se não encontrou, este evento entra para o final da lista
+    if (!spoted)
+        C.list.push_back(e);
+
+    // debug
+    print_calendar(C);
+}
+
 // Dijkstra algorithm
 // implementing a source to all search
 // pair<int,int> where [first=width]; [second=lenght]
@@ -184,23 +203,6 @@ void dijkstra(Graph g, Node s)
 
     while (q.size())
     {
-        /*
-        printf("\n================================");
-        printf("\n============== %d =============== \n", k);
-
-        printf("\n\tQs");
-        for (int i=0; i < q.size(); i++)
-            printf("\t%d", q[i]);  
-
-        printf("\n\td-Qs");
-        for (int i=0; i<g.n; i++)
-            printf("\t(%4d,%4d)", q_distance[i].first, q_distance[i].second);
-    
-        printf("\n\tp-Qs");
-        for (int i=0; i<g.n; i++)
-            printf("\t%d", q_parent[i]);  
-        */
-
         // obter o nó cuja distância é menor
         // devolve o index em que está o nó, é preciso ir buscá-lo
         int index = ws_minimum(q, q_distance); 
@@ -232,6 +234,66 @@ void dijkstra(Graph g, Node s)
     get_routes(q_distance, q_parent);
 }
 
+void simulator(Graph G)
+{
+
+    auto start = std::chrono::high_resolution_clock::now();
+    double time;
+
+    // for each node 
+    // add to calendar
+    // look at each node edges, add create new events
+    for (int i = G.n-1; i == G.n-1; i--)
+    {
+        printf("\nAcordar nó %d com i=%d", G.nodes[i].id, i);
+
+        //para cada out-neighbour, adicionar uma mensagem ao calendario
+        for (int j=0; j<G.nodes[i].in_edges.size(); j++)
+        {
+
+            // get event time
+            auto now = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double, std::milli> elapsed = now - start;
+            time = elapsed.count() + get_random();
+
+            Event e = 
+            {
+                time,
+                G.nodes[i].in_edges[j].target,  
+                G.nodes[i].in_edges[j].source, 
+                G.nodes[i].in_edges[j].width, 
+                G.nodes[i].in_edges[j].length
+            };
+
+            add_new_event(e);
+        
+            printf("Evento %d->%d - [%d,%d] with time %f",                 
+                e.event.source,
+                e.event.target,
+                e.event.width,
+                e.event.length, 
+                e.time);
+        }
+
+        printf("\nadicionar o novo");
+        Event y = {0.0, 1, 2, 2, 2};
+        add_new_event(y);
+
+        //processa evento 
+        while (C.list.size())
+        {
+            printf("\nVai processar o próximo evento");
+            C.list.erase(C.list.begin());
+        }
+    }
+
+    printf("\n");
+
+    auto finish = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> elapsed = finish - start;
+    std::cout << "\nElapsed Time: " << elapsed.count() << " seconds" << std::endl;
+}
+
 int main() // u0, w1, v2, x3
 {
     init();
@@ -254,6 +316,12 @@ int main() // u0, w1, v2, x3
     v.out_edges.push_back(e3);
     w.out_edges.push_back(e4);
     v.out_edges.push_back(e5);
+
+    v.in_edges.push_back(e2);
+    w.in_edges.push_back(e1);
+    w.in_edges.push_back(e3);
+    x.in_edges.push_back(e4);
+    x.in_edges.push_back(e5);
     
     G.n = 4;
     G.nodes.push_back(u);
@@ -268,7 +336,9 @@ int main() // u0, w1, v2, x3
     int current_node = 0;
     int loop = 0;
     
-    dijkstra(G, w);
+    //dijkstra(G, w);
+
+    simulator(G);
     printf("\n");
 
     return 0;
