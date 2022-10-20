@@ -111,6 +111,7 @@ void print_distances(std::vector<std::vector<std::pair<int,int>>> dist)
         for (int j=0; j<GRAPH_MAX_SIZE; j++)
             printf("\t(%4d; %4d)", dist[i][j].first, dist[i][j].second); 
     }
+    printf("\n");
 }
 
 
@@ -232,19 +233,19 @@ void build_network(char filename[])
 // for every node left on the queue, get the one 
 // with less distance to the source and return its index
 // doesn't return the node, returns the queue index
-int ws_minimum(std::vector<int> queue, std::vector<std::pair<int,int>> distances)
+int ws_minimum(std::vector<int> queue, int index)
 {
     int current_length = EDGE_MAX_LENGHT;
     int current_width = EDGE_MAX_WIDTH;
     int current_index = 0;
 
-    for (int i=0; i<queue.size(); i++) 
+    for (int i=0; i < queue.size(); i++) 
     {
-        if (current_length > distances[queue[i]].second || 
-           (current_length == distances[queue[i]].second && current_width < distances[queue[i]].first)) 
+        if (current_length > dist[queue[i]][index].second || 
+           (current_length == dist[queue[i]][index].second && current_width < dist[queue[i]][index].first)) 
         {
-            current_length = distances[queue[i]].second;
-            current_width = distances[queue[i]].first;
+            current_length = dist[queue[i]][index].second;
+            current_width = dist[queue[i]][index].first;
             current_index = i;
         }
     }
@@ -261,6 +262,20 @@ void get_parent(std::vector<int> parent, int start)
         printf(" <- %d", parent[start]);
         get_parent(parent, parent[start]);
     }
+}
+
+
+// used to print all the data representing
+// the predecessors of each node
+void print_parent()
+{
+    for (int i = 0; i < parent.size(); i++)
+    {
+        printf("\n");
+        for (int j = 0; j < parent[i].size(); j++)
+            printf("\t %d", parent[i][j]);
+    }
+    printf("\n");
 }
 
 
@@ -298,65 +313,6 @@ void add_new_event(Event e)
     if (!spoted)
         calendar.list.push_back(e);
 
-}
-
-
-// Dijkstra algorithm
-// implementing a source to all search
-// pair<int,int> where [first=width]; [second=lenght]
-void dijkstra(Graph g, Node s)
-{
-    printf("\nDijkstra from %d \n", s.id);
-
-    std::vector<int> q;
-    std::vector<int> q_parent;
-    std::vector<std::pair<int,int>> q_distance;
-
-    // initialization
-    // no one has parents at the begin
-    // lenght and width are infinite * to do: check this infinitive width 
-    for (int i=0; i<g.n; i++)
-    {
-        q.push_back(g.nodes[i].id);
-        q_parent.push_back(-1);
-        q_distance.push_back(std::make_pair(EDGE_MAX_WIDTH, EDGE_MAX_LENGHT));
-    }
-
-    // for itself, widths and lenghts are zero
-    q_distance[s.id].first = 0; 
-    q_distance[s.id].second = 0;
-
-    while (q.size())
-    {
-        // obter o nó cuja distância é menor
-        // devolve o index em que está o nó, é preciso ir buscá-lo
-        int index = ws_minimum(q, q_distance); 
-        int u = q[index];
-
-        // relaxar cada aresta uv
-        for (int i=0; i<g.nodes[u].out_edges.size(); i++)
-        {
-            int v = g.nodes[u].out_edges[i].target;
-            int uv_lenght = g.nodes[u].out_edges[i].length;
-            int uv_width = g.nodes[u].out_edges[i].width;
-
-            // se lenght mais curta do que está nas distancias, actualiza
-            // fica com o menor valor para a width
-            if (q_distance[v].second > q_distance[u].second + uv_lenght)
-            {
-                q_distance[v].second = q_distance[u].second + uv_lenght;
-                q_distance[v].first = q_distance[u].first < uv_width && q_parent[u] != -1 ? q_distance[u].first : uv_width;
-                q_parent[v] = u;
-            }
-        }
-
-        //remove nó da queue
-        q.erase(q.begin() + index);
-    }
-
-    // iteração terminou
-    // show path for each node
-    get_routes(q_distance, q_parent);
 }
 
 
@@ -399,20 +355,25 @@ void awake_node(int node_id, auto start)
 
 // comparator used by Dijkstra and Simulator
 // to update the distances based on the widest of the shortest
-void widest_shortest(int i, int u, int v, int du, int dv, int luv, int w, int wuv, auto start_time)
+void widest_shortest(int i, int u, int v, int du, int dv, int luv, int w, int wuv, auto start_time, bool simulation)
 {
+
+    if (debug)
+        printf("\n[%d -> %d] : %d vs %d + %d : min { %d ; %d }", v, i, dv, du, luv, w, wuv);
+
     // se a distância encontrada é menor, atualiza
     // se a distância é igual à atual, temos de ver se a largura melhora
     if (dv > du + luv || dv == du + luv && w < wuv)
     {
         dist[v][i].second = du + luv;
         dist[v][i].first = w < wuv ? w : wuv;
-        parent[v][u] = u;
+        parent[i][v] = u;
 
         //adiciona novo evento ao calendario
         awake_node(v, start_time);
     }
 }
+
 
 
 // comparator used by Dijkstra and Simulator
@@ -447,6 +408,11 @@ void shortest_widest(int i, int u, int v, int du, int dv, int luv, int w, int wv
 // each node is awaken at the time
 void simulator(Graph G)
 {
+
+    printf("\nSimulator");
+    printf("\nwidest-shortest paths");
+    printf("\n");
+
     // start counting time for simulation
     auto start = std::chrono::high_resolution_clock::now();
 
@@ -477,7 +443,7 @@ void simulator(Graph G)
 
             int w = wui < wuv ? wui : wuv;
            
-            widest_shortest(i, u, v, du, dv, luv, w, wvi, start);   //wvi was wuv
+            widest_shortest(i, u, v, du, dv, luv, w, wvi, start, true);   //wvi was wuv
             //shortest_widest(i, u, v, du, dv, luv, w, wvi, start);       
 
             if (debug)
@@ -490,10 +456,119 @@ void simulator(Graph G)
     }
 
     print_distances(dist);
+    print_parent(); 
 
     auto finish = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double, std::milli> elapsed = finish - start;
     std::cout << "\nElapsed Time: " << elapsed.count() << " seconds" << std::endl;
+}
+
+
+
+
+// Dijkstra algorithm
+// implementing a destination to all sources search
+// pair<int,int> where [first=width]; [second=lenght]
+void run_dijkstra(Graph network, Node destination)
+{
+    auto start = std::chrono::high_resolution_clock::now();
+    std::vector<int> queue;
+
+    // initialization
+    // no one has parents at the begin
+    // lenght and width are infinite
+    // only instantiates vector relative to the node that is destination
+    for (int i=0; i < network.n; i++)
+    {
+        queue.push_back(network.nodes[i].id);
+        parent[destination.id][i] = (-1);
+        dist[destination.id].push_back(std::make_pair(EDGE_MAX_WIDTH, EDGE_MAX_LENGHT));
+    }
+
+    // for itself, width is max and length is zero
+    dist[destination.id][destination.id].first = EDGE_MAX_WIDTH; 
+    dist[destination.id][destination.id].second = 0;
+
+    if (debug)
+    {
+        print_distances(dist);
+        print_parent(); 
+    }
+
+    int k = 0;
+    while (queue.size())
+    {
+        if (debug)
+        {
+            printf("\n=================================================");
+            printf("\n================================================= k=%d", k);
+        }
+
+        // obter o nó cuja distância é menor
+        // devolve o index em que está o nó, é preciso ir buscá-lo
+        // vetor coluna...
+        int index = ws_minimum(queue, destination.id); 
+        int u = queue[index];
+
+        if (debug)
+        {
+            printf("\nfound index %d", index);
+            printf("\nnode %d", u);
+        }
+
+        // relaxar cada aresta uv
+        for (int i=0; i < network.nodes[u].in_edges.size(); i++)
+        {
+            int v = network.nodes[u].in_edges[i].source;        // node (v) which is going to be analised
+
+            int dw = dist[v][destination.id].first;             // width of the current path analised
+            int dv = dist[v][destination.id].second;            // length dv (from v -> destination)
+            int du = dist[u][destination.id].second;            // length du (from u -> destination)
+            
+            int luv = network.nodes[u].in_edges[i].length;      // length luv from u -> v
+            int wuv = network.nodes[u].in_edges[i].width;       // width of the current edge analised
+            wuv = wuv < dist[u][destination.id].first ?         // minimization { w(u); w(uv) }
+                wuv :  dist[u][destination.id].first;
+            
+            widest_shortest(destination.id, u, v, du, dv, luv, dw, wuv, start, false);
+
+            if (debug)
+            {
+                print_distances(dist);
+                print_parent(); 
+            }
+        }
+
+        //remove nó da queue
+        queue.erase(queue.begin() + index);
+        k++;
+
+        if (debug)
+        {
+            printf("\nQUEUE:");
+            for(int i=0; i<queue.size(); i++)
+                printf("\t %d", queue[i]);
+        }
+    }
+
+    // iteração terminou
+    // show path for each node
+}
+
+
+// run Dijkstra for each node as destination
+void dijkstra(Graph network)
+{
+    printf("\nDijkstra"); 
+    printf("\nwidest shortest \n");
+
+    for (int i = network.nodes.size()-1 ; i >= 0; i--)
+    {
+        run_dijkstra(network, network.nodes[i]);
+    }
+
+    print_distances(dist);
+    print_parent();
 }
 
 
@@ -504,6 +579,11 @@ int main() // u0, w1, v2, x3
 
     char filename [] = "network.txt";
     build_network(filename);
+
+    
+    dijkstra(network);
+
+    printf("\n");
 
     simulator(network);
 
