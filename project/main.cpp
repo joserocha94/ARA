@@ -76,7 +76,7 @@ Graph network;
 Calendar calendar;
 
 bool debug = false;
-bool sw = true;
+bool sw = false;
 
 // uniform distribution between 0 and 1
 // used to increment the event random delay
@@ -483,9 +483,10 @@ void simulator(Graph G)
     // start counting time for simulation
     auto start = std::chrono::high_resolution_clock::now();
 
-    for (int i=0; i<dist.size(); i++)
-        for (int j = 0; j<dist[i].size(); j++)
-            dist[i][j].first = 0;
+    if (sw)
+        for (int i=0; i<dist.size(); i++)
+            for (int j = 0; j<dist[i].size(); j++)
+                dist[i][j].first = 0;
 
     // for each node 
     // add to calendar
@@ -508,7 +509,7 @@ void simulator(Graph G)
             int dv = dist[v][i].second;                         // distance from nove (v) to the current announced node
             int luv = calendar.list[0].event.length;            // distance of the already found path
         
-            int wui = dist[u][i].first;                         // width from current node (u) to destination node (i)
+            int wui = dist[u][i].first;                         // width from node (u) to destination node (i)
             int wvi = dist[v][i].first;                         // width from node (v) to destination node (i)
             int wuv = calendar.list[0].event.width;             // width of the current edge which is gonna be part of the new path from (v) to (i)
 
@@ -644,12 +645,12 @@ void dijkstra(Graph network)
     auto start = std::chrono::high_resolution_clock::now();
     for (int i = network.nodes.size()-1 ; i >= 0; i--)
     {
-        dijkstra(network, network.nodes[i], start);
+        dijkstra(network, network.nodes[i], start); /*
         printf("\n##########################################################");
         printf("\n##########################################################");
         printf("\n##########################################################");
         printf("\n");
-        printf("\n");
+        printf("\n"); */
     }
     print_distances(dist);
     print_parent();
@@ -664,9 +665,6 @@ void dijkstra(Graph network)
 
 int main() // u0, w1, v2, x3
 {
-    print_distances(dist);
-    printf("\n");
-
     char filename [] = "network.txt";
     build_network(filename);
 
