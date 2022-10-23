@@ -408,7 +408,10 @@ void output(std::string algoritmo)
 {
     fix_distances();
     print_distances();
-    get_routes();
+    
+    // algoritmo falha a imprimir os predecessores
+    if (algoritmo != "algoritmo_sw" && algoritmo != "algoritmo_ws")
+        get_routes();
 
     if (data)
         ccdf(algoritmo);
@@ -1050,7 +1053,7 @@ void algoritmo()
 int main() 
 {
 
-    char filename[] = "input/network.txt";
+    char filename[] = "input/project.txt";
     build_network(filename);
 
     sw = false;
@@ -1075,12 +1078,11 @@ int main()
     std::cout << "\n\nInput source node: "; 
     std::cin >> source; 
 
-    std::cout << "Input a destination node: ";
+    std::cout << "Input destination node: ";
     std::cin >> destination;
 
     dijkstra_sd(network, source, destination);
     simulator_sd(network, source, destination);
-
 
     printf("\n");
     return 0;
