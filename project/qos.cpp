@@ -6,11 +6,15 @@
 #include <thread>
 #include <fstream>
 
-#define GRAPH_MAX_SIZE 4
+
 #define MAX_NODES 9999
+#define TIME_CONST 1
 
 #define EDGE_MAX_WIDTH 999
-#define EDGE_MAX_LENGHT 999
+#define EDGE_MIN_WIDTH 0
+#define EDGE_MAX_LENGTH 999
+#define EDGE_MIN_LENGTH 0
+
 
 struct Edge
 {
@@ -31,30 +35,6 @@ struct Graph
 {
     int n;
     std::vector<Node> nodes;
-
-    void print()
-    {
-        printf("\nNetwork in-edges \n");
-        for (int i = 0; i < nodes.size(); i++)
-            for (int j = 0; j < nodes[i].in_edges.size(); j++)
-                std::cout << "["
-                << nodes[i].id << "] ("
-                << nodes[i].in_edges[j].source << ","
-                << nodes[i].in_edges[j].target << ")"
-                << std::endl;
-    }
-
-    void print_out()
-    {
-        printf("\nNetwork out-edges \n");
-        for (int i = 0; i < nodes.size(); i++)
-            for (int j = 0; j < nodes[i].out_edges.size(); j++)
-                std::cout << "["
-                << nodes[i].id << "] ("
-                << nodes[i].out_edges[j].source << ","
-                << nodes[i].out_edges[j].target << ")"
-                << std::endl;
-    }
 };
 
 struct Event
@@ -68,25 +48,103 @@ struct Calendar
     std::vector<Event> list;
 };
 
-std::vector<std::vector<std::pair<int, int>>> dist;
+struct Info
+{
+    int width;
+    int length;
+    int it;
+    double time;
+};
+
+struct candidate_pair
+{
+    int width;
+    int length;
+    int label;
+    int next_label;
+};
+
+std::vector<std::vector<std::vector<candidate_pair>>> cd;
+std::vector<std::vector<std::vector<int>>> ninja_parent;
+std::vector<std::vector<Info>> dist;
 std::vector<std::vector<int>> parent;
 
 Graph network;
 Calendar calendar;
 
-bool debug = false;
-bool sw = true;
+int global_iteration;
+bool debug, data, sw;
 
-// uniform distribution between 0 and 1
-// used to increment the event random delay
+
+/*  função ccdf para análise dos tempos de descoberta
+ficheiro produzido disponibilizado em root/output   */
+void ccdf_times(std::string algoritmo)
+{
+
+    std::string filename = "output/ccdf_times_" + algoritmo + ".txt";
+    std::ofstream outfile (filename);
+
+    for (int i=0; i<network.n; i++)
+        for (int j=0; j<network.n; j++)
+            outfile << dist[i][j].time <<std::endl;
+
+    outfile.close();
+}
+
+
+/*  função ccdf para nálise das larguras dos nós
+encontrados pela execução do programa. o ficheiro 
+produzido fica disponibilizado em root/output   */
+void ccdf_width(std::string algoritmo)
+{
+
+    std::string filename = "output/ccdf_width_" + algoritmo + ".txt";
+    std::ofstream outfile (filename);
+
+    for (int i=0; i<network.n; i++)
+        for (int j=0; j<network.n; j++)
+            outfile << dist[i][j].width <<std::endl;
+
+    outfile.close();
+}
+
+
+/*  função ccdf para nálise das distâncias dos nós
+encontrados pela execução do programa. o ficheiro 
+produzido fica disponibilizado em root/output   */
+void ccdf_length(std::string algoritmo)
+{
+
+    std::string filename = "output/ccdf_length_" + algoritmo + ".txt";
+    std::ofstream outfile (filename);
+
+    for (int i=0; i<network.n; i++)
+        for (int j=0; j<network.n; j++)
+            outfile << dist[i][j].length <<std::endl;
+
+    outfile.close();
+}
+
+/* função ccdf para execução de todas as funções ccdf*/
+void ccdf(std::string algoritmo)
+{
+    ccdf_times(algoritmo);
+    ccdf_width(algoritmo);
+    ccdf_length(algoritmo);
+}
+
+
+/*  distribuição uniforme utilizada para cálculo
+do atraso aleatório na criação de um novo evento e posterior
+inserção no calendário  */
 double get_random()
 {
     return ((double)rand() / (RAND_MAX));
 }
 
 
-// prints the calendar events
-// since the calendar is always ordered, the output is also
+/*  função para imprimir o calendário utilizado pelo simulador. 
+como o calendário estás sempre ordenado também o output estará  */
 void print_calendar(Calendar calendar)
 {
     printf("\n\n");
@@ -101,27 +159,75 @@ void print_calendar(Calendar calendar)
 }
 
 
-// prints the distances [width; leangth] from each node
-// to each other node of the source
-// includes the default distances (not visited nodes)
-void print_distances(std::vector<std::vector<std::pair<int, int>>> dist)
+/*  imprime pares (largura, distância) de cada nó para todas
+as outras sources. inclui nós não visitados com default values  */
+void print_distances()
 {
     for (int i = 0; i < dist.size(); i++)
     {
         printf("\n");
         for (int j = 0; j < network.n; j++)
-            printf("\t(%4d; %4d)", dist[i][j].first, dist[i][j].second);
+            printf("\t(%4d; %4d) at %2d in %.2f", 
+                dist[i][j].width, 
+                dist[i][j].length, 
+                dist[i][j].it, 
+                dist[i][j].time);
     }
     printf("\n");
 }
 
 
-// from the input file, builds the program network
-// reads all edges, from the edges get all network nodes
-// assign in_edges and out_edges to each node
+/*  imprime distância específica entre uma origem e 
+um destino. utilizado no modo interativo */
+void print_distances(int source, int destination)
+{
+    int width = dist[source][destination].width;
+    int length = dist[source][destination].length;
+    
+    printf("was found with (%2d, %2d)", width, length);
+}
+
+
+/* destroi dados da matrix de distâncias. reconstroi
+a matrix para posterior execução por um outro algoritmo */
+void reset_distances()
+{
+    global_iteration = 0;
+    dist.resize(0);
+    dist.resize(network.n);
+
+    Info dummy = { EDGE_MAX_WIDTH, EDGE_MAX_LENGTH, 0, 0 };
+
+    for (int i = 0; i < dist.size(); i++)
+        for (int j = 0; j < network.n; j++)
+            dist[i].push_back(dummy);
+}
+
+
+/* destroi dados da matrix dos predecessores. reconstroi
+a matrix para posterior execução por um outro algoritmo */
+void reset_parents()
+{
+    parent.resize(0);
+    parent.resize(network.n);
+    for (int i = 0; i < dist.size(); i++)
+        parent[i].resize(network.n);
+}
+
+
+/* destroi dados da matrix de distâncias e da matrix de 
+predecessores. reconstroi ambas */
+void reset_stats()
+{
+    reset_distances();
+    reset_parents();
+}
+
+
+/* a partir de um ficheiro passado como argumento, constroi a rede
+do sistema para execução da simulação e do algoritmo    */
 void build_network(char filename[])
 {
-
     FILE* fp = fopen(filename, "r");
     int counter = -1;
 
@@ -170,7 +276,7 @@ void build_network(char filename[])
     for (int i = 0; i < MAX_NODES; i++)
         node_aux.push_back(-1);
 
-    // verifica que n�s tem de criar
+    // verifica que n�s tem de criar
     for (int i = 0; i < edge_list.size(); i++)
     {
         int t_source = edge_list[i].source;
@@ -218,93 +324,13 @@ void build_network(char filename[])
     // add the builded nodes to the program network
     network.nodes = node_list;
 
-    // matrix with pairs width-length
-    dist.resize(network.n);
-    for (int i = 0; i < dist.size(); i++)
-        for (int j = 0; j < network.n; j++)
-            dist[i].push_back(std::make_pair(EDGE_MAX_WIDTH, EDGE_MAX_LENGHT));
-
-    // matrix with parents for path search
-    parent.resize(network.n);
-    for (int i = 0; i < dist.size(); i++)
-        parent[i].resize(network.n);
+    // reset distances + parents
+    reset_stats();
 }
 
 
-// for every node left on the queue, get the one 
-// with less distance to the source and return its index
-// doesn't return the node, returns the queue index
-int ws_minimum(std::vector<int> queue, int index)
-{
-    int current_length = EDGE_MAX_LENGHT;
-    int current_width = EDGE_MAX_WIDTH;
-    int current_index = 0;
-
-    for (int i = 0; i < queue.size(); i++)
-    {
-        if (current_length > dist[queue[i]][index].second ||
-            (current_length == dist[queue[i]][index].second && current_width < dist[queue[i]][index].first))
-        {
-            current_length = dist[queue[i]][index].second;
-            current_width = dist[queue[i]][index].first;
-            current_index = i;
-        }
-    }
-    return current_index;
-}
-
-
-// for every node left on the queue, get the one 
-// with biggest width to the source and return its index
-// doesn't return the node, returns the queue index
-int sw_minimum(std::vector<int> queue, int index)
-{
-    /*
-        // change max-width default value
-        for (int i = 0; i < queue.size(); i++)
-            if (dist[queue[i]][index].first == EDGE_MAX_WIDTH)
-                dist[queue[i]][index].first = -1 * EDGE_MAX_WIDTH;
-    */
-    int current_length = EDGE_MAX_LENGHT;
-    int current_width = 0;
-    int current_index = 0;
-
-    for (int i = 0; i < queue.size(); i++)
-    {
-
-        if (current_width < dist[queue[i]][index].first ||
-            (current_width == dist[queue[i]][index].first && current_length > dist[queue[i]][index].second))
-        {
-            current_length = dist[queue[i]][index].second;
-            current_width = dist[queue[i]][index].first;
-            current_index = i;
-        }
-    }
-    /*
-        // change max-width default value
-        for (int i = 0; i < queue.size(); i++)
-            if (dist[queue[i]][index].first == -EDGE_MAX_WIDTH)
-                dist[queue[i]][index].first = EDGE_MAX_WIDTH;
-    */
-
-    return current_index;
-}
-
-
-// used to print the predecessor nodes 
-// along each path that has been found
-void get_parent(std::vector<int> parent, int start)
-{
-    if (parent[start] != -1)
-    {
-        printf(" <- %d", parent[start]);
-        get_parent(parent, parent[start]);
-    }
-}
-
-
-// used to print all the data representing
-// the predecessors of each node
+/* imprime dados da matrix de predecessores. por defeito
+inclui nós não visitados com -1 no seu predecessor */
 void print_parent()
 {
     for (int i = 0; i < parent.size(); i++)
@@ -317,28 +343,84 @@ void print_parent()
 }
 
 
-// when a protocol/algorithm as finished the paths
-// may be found at parent matrix and be printed
-// ignores inexistent paths
-void get_routes(std::vector<std::pair<int, int>> q_distance, std::vector<int> q_parent)
+/*  durante o programa, quando um nó não é visitado, utilizamos
+valores por defeito (999; 999) nos pares largura e distância (conforme)
+seja mais conveniente para o algoritmo em questão saber tomar descisões.
+neste método fazemos a uniformização dos nós não visitados para 
+melhor interpretação dos dados  */
+void fix_distances()
 {
     for (int i = 0; i < network.n; i++)
-        if (q_distance[i].first != EDGE_MAX_LENGHT && q_distance[i].second != EDGE_MAX_WIDTH)
-        {
-            printf("\n\t(%2d,%3d) : %d", q_distance[i].first, q_distance[i].second, i);
-            get_parent(q_parent, i);
-        }
+        for (int j = 0; j < network.n; j++)
+            if (sw && dist[i][j].width == EDGE_MIN_WIDTH && dist[i][j].length == EDGE_MAX_LENGTH)
+                dist[i][j].width = EDGE_MAX_WIDTH;          
 }
 
 
-// adds a new event to the calendar
-// fifo order, due to the event time
+/* obtém o nó predecessor de forma recursiva */
+void get_parent(int row, int col)
+{
+    if (parent[row][col] != -1)
+    {
+        printf(" -> %d", parent[row][col]); 
+        if (parent[row][col] != row)
+            get_parent(row, parent[row][col]);
+    }
+}
+
+
+/* deprecado. era utilizada para obter os predecessores no algoritmo de SW
+mas a matrix ninja_parent foi refinada para dentro da matrix parent */
+void get_ninja_parent(int node, int row, int col)
+{
+    if (ninja_parent[node][row][col] != -1)
+    {
+        printf("\n in");
+        printf(" -> %d", ninja_parent[node][row][col]); 
+        if (ninja_parent[node][row][col] != row)
+            get_ninja_parent(node, ninja_parent[node][row][col], row);
+    }
+}
+
+
+/* obter caminhos encontrados. ignora
+caminho não existentes/nós não visitados*/
+void get_routes()
+{
+    for (int i = 0; i < network.n; i++)
+        for (int j = 0; j < network.n; j++)
+            if (dist[i][j].width != EDGE_MAX_LENGTH && dist[i][j].length != EDGE_MAX_WIDTH)
+            {
+                printf("\n\t(%2d,%3d) : %d", dist[i][j].width, dist[i][j].length, i);
+                get_parent(j, i);
+            }
+}
+
+
+/* utilizado no final do algoritmo/simulação para refinar e uniformizar matrix
+de distâncias e matrix de predecessores. olhando à flag <data>, pode ou não 
+criar os ficheiros das CCDFs*/
+void output(std::string algoritmo)
+{
+    fix_distances();
+    print_distances();
+    get_routes();
+
+    if (data)
+        ccdf(algoritmo);
+
+    reset_stats();
+}
+
+
+/* adiciona um novo evento ao calendario respeitando o tempo
+de execução do evento  */
 void add_new_event(Event e)
 {
     bool spoted = false;
 
-    // se � menor que o atual, insere nesta posi��o
-    // as outras posi��es devem andar uma posi��o para a frente
+    // se � menor que o atual, insere nesta posi��o
+    // as outras posi��es devem andar uma posi��o para a frente
     for (int i = 0; i < calendar.list.size(); i++)
         if (e.time < calendar.list[i].time)
         {
@@ -347,7 +429,7 @@ void add_new_event(Event e)
             break;
         }
 
-    // se n�o encontrou, este evento entra para o final da lista
+    // se n�o encontrou, este evento entra para o final da lista
     if (!spoted)
         calendar.list.push_back(e);
 
@@ -362,16 +444,19 @@ void awake_node(int node_id, auto start)
     double time;
 
     //the node instantiates the (width, length) to itself
-    dist[node_id][node_id].first = EDGE_MAX_WIDTH;
-    dist[node_id][node_id].second = 0;
+    dist[node_id][node_id].width = EDGE_MAX_WIDTH;
+    dist[node_id][node_id].length = 0;
 
     // for each in-neighbour add new event to the calendar
     for (int i = 0; i < network.nodes[node_id].in_edges.size(); i++)
     {
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
         // get event time
         auto now = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double, std::milli> elapsed = now - start;
-        time = elapsed.count() + get_random();
+        time = elapsed.count() + get_random() + TIME_CONST;
 
         Event e =
         {
@@ -393,6 +478,54 @@ void awake_node(int node_id, auto start)
 }
 
 
+// for every node left on the queue, get the one 
+// with less distance to the source and return its index
+// doesn't return the node, returns the queue index
+int ws_minimum(std::vector<int> queue, int index)
+{
+    int current_length = EDGE_MAX_LENGTH;
+    int current_width = EDGE_MAX_WIDTH;
+    int current_index = 0;
+
+    for (int i = 0; i < queue.size(); i++)
+    {
+        if (current_length > dist[queue[i]][index].length ||
+            (current_length == dist[queue[i]][index].length && current_width < dist[queue[i]][index].width))
+        {
+            current_length = dist[queue[i]][index].length;
+            current_width = dist[queue[i]][index].width;
+            current_index = i;
+        }
+    }
+    return current_index;
+}
+
+
+// for every node left on the queue, get the one 
+// with biggest width to the source and return its index
+// doesn't return the node, returns the queue index
+int sw_minimum(std::vector<int> queue, int index)
+{
+    int current_length = EDGE_MAX_LENGTH;
+    int current_width = 0;
+    int current_index = 0;
+
+    for (int i = 0; i < queue.size(); i++)
+    {
+
+        if (current_width < dist[queue[i]][index].width ||
+            (current_width == dist[queue[i]][index].width && current_length > dist[queue[i]][index].length))
+        {
+            current_length = dist[queue[i]][index].length;
+            current_width = dist[queue[i]][index].width;
+            current_index = i;
+        }
+    }
+
+    return current_index;
+}
+
+
 // comparator used by Dijkstra and Simulator
 // to update the distances based on the widest of the shortest
 void widest_shortest(int i, int u, int v, int du, int dv, int luv, int w, int wuv, auto start_time, bool simulation)
@@ -400,13 +533,25 @@ void widest_shortest(int i, int u, int v, int du, int dv, int luv, int w, int wu
     if (debug)
         printf("\n[%d -> %d] : %d vs %d + %d : min { %d ; %d }", v, i, dv, du, luv, w, wuv);
 
-    // se a dist�ncia encontrada � menor, atualiza
-    // se a dist�ncia � igual � atual, temos de ver se a largura melhora
+    // se a dist�ncia encontrada � menor, atualiza
+    // se a dist�ncia � igual � atual, temos de ver se a largura melhora
     if (dv > du + luv || dv == du + luv && w < wuv)
     {
-        dist[v][i].second = du + luv;
-        dist[v][i].first = w < wuv ? w : wuv;
-        parent[i][v] = u;
+        auto finish = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double, std::milli> elapsed = finish - start_time;
+
+        dist[v][i].length = du + luv;
+        dist[v][i].width = w < wuv ? w : wuv;
+        dist[v][i].it = global_iteration;   
+        dist[v][i].time = elapsed.count();
+
+        if (simulation) 
+            parent[i][v] = u;
+        else
+            parent[i][v] = u;
+
+        if (debug)
+            printf("\n\tAtualizei a posição (%d,%d) com (%d, %d) tem parent = %d", v, i, w, du + luv, v);
 
         //adiciona novo evento ao calendario
         if (simulation)
@@ -422,16 +567,25 @@ void shortest_widest(int i, int u, int v, int du, int dv, int luv, int w, int wv
     if (debug)
         printf("\n\t%d -> %d : (%d vs %d + %d) : {%d vs %d}", u, v, dv, du, luv, wvi, w);
 
-    // se a largura encontrada � maior, atualiza
-    // se a largura encontra � igual, v� se a dist�ncia � mais curta
+    // se a largura encontrada � maior, atualiza
+    // se a largura encontra � igual, v� se a dist�ncia � mais curta
     if (w > wvi || w == wvi && dv > du + luv)
     {
-        dist[v][i].first = w;
-        dist[v][i].second = du + luv;
-        parent[i][v] = u;
+        auto finish = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double, std::milli> elapsed = finish - start_time;
+
+        dist[v][i].width = w;
+        dist[v][i].length = du + luv;
+        dist[v][i].it = global_iteration;
+        dist[v][i].time = elapsed.count();
+
+        if (simulation) 
+            parent[i][v] = u;
+        else
+            parent[i][v] = u;
         
         if (debug)
-            printf("\n\n\tAtualizei a posi��o (%d,%d) com (%d, %d)", v, i, w, du + luv);
+            printf("\n\tAtualizei a posição (%d,%d) com (%d, %d) tem parent = %d", v, i, w, du + luv, v);
 
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
         if (simulation)
@@ -439,7 +593,62 @@ void shortest_widest(int i, int u, int v, int du, int dv, int luv, int w, int wv
     }
 
     if (debug)
-        print_distances(dist);
+        print_distances();
+}
+
+
+// simulator for vectoring protocol
+// interactive mode simulating routing between source and destination
+void simulator_sd(Graph G, int source, int destination)
+{
+    printf("\nSimulator source [%d] to destintion [%d] ", source, destination);
+    
+    // start counting time for simulation
+    auto start = std::chrono::high_resolution_clock::now();
+
+    if (sw)
+        for (int i = 0; i < dist.size(); i++)
+            for (int j = 0; j < dist[i].size(); j++)
+                dist[i][j].width = 0;
+
+
+    for (int i = 0; i < parent.size(); i++)
+        for (int j = 0; j < parent[i].size(); j++)
+            parent[i][j] = -1;
+
+
+    // awake node
+    awake_node(destination, start);
+
+    //processa evento 
+    while (calendar.list.size())
+    {
+        global_iteration++;
+
+        int u = calendar.list[0].event.source;              // sender node
+        int v = calendar.list[0].event.target;              // receiver node
+
+        int du = dist[u][destination].length;                         // distance from node (u) to the current announced node
+        int dv = dist[v][destination].length;                         // distance from nove (v) to the current announced node
+        int luv = calendar.list[0].event.length;            // distance of the already found path
+
+        int wui = dist[u][destination].width;                         // width from current node (u) to destination node (i)
+        int wvi = dist[v][destination].width;                         // width from node (v) to destination node (i)
+        int wuv = calendar.list[0].event.width;             // width of the current edge which is gonna be part of the new path from (v) to (i)
+
+        int w = wui < wuv ? wui : wuv;
+
+        if (sw)
+            shortest_widest(destination, u, v, du, dv, luv, w, wvi, start, true);
+        else
+            widest_shortest(destination, u, v, du, dv, luv, w, wvi, start, true);
+
+        // removes event from the list
+        // since its fifo, remove from the head        
+        calendar.list.erase(calendar.list.begin());
+    }
+
+    print_distances(source, destination);
 }
 
 
@@ -448,18 +657,24 @@ void shortest_widest(int i, int u, int v, int du, int dv, int luv, int w, int wv
 void simulator(Graph G)
 {
     printf("\nSimulator");
+    std::string algoritmo = sw ? "simulator_sw" : "simulator_ws";
 
     // start counting time for simulation
     auto start = std::chrono::high_resolution_clock::now();
 
+    // if is shortest-widest we must fix the max width
+    // to zero, so that anything found should potencially an improve
     if (sw)
         for (int i = 0; i < dist.size(); i++)
             for (int j = 0; j < dist[i].size(); j++)
-                dist[i][j].first = 0;
+                dist[i][j].width = 0;
 
+
+    // set all predecessors as -1
     for (int i = 0; i < parent.size(); i++)
         for (int j = 0; j < parent[i].size(); j++)
             parent[i][j] = -1;
+
 
     // for each node 
     // add to calendar
@@ -472,18 +687,17 @@ void simulator(Graph G)
         //processa evento 
         while (calendar.list.size())
         {
-            if (debug)
-                printf("\n\nVai processar o pr�ximo evento");
+            global_iteration++;
 
             int u = calendar.list[0].event.source;              // sender node
             int v = calendar.list[0].event.target;              // receiver node
 
-            int du = dist[u][i].second;                         // distance from node (u) to the current announced node
-            int dv = dist[v][i].second;                         // distance from nove (v) to the current announced node
+            int du = dist[u][i].length;                         // distance from node (u) to the current announced node
+            int dv = dist[v][i].length;                         // distance from nove (v) to the current announced node
             int luv = calendar.list[0].event.length;            // distance of the already found path
 
-            int wui = dist[u][i].first;                         // width from current node (u) to destination node (i)
-            int wvi = dist[v][i].first;                         // width from node (v) to destination node (i)
+            int wui = dist[u][i].width;                         // width from current node (u) to destination node (i)
+            int wvi = dist[v][i].width;                         // width from node (v) to destination node (i)
             int wuv = calendar.list[0].event.width;             // width of the current edge which is gonna be part of the new path from (v) to (i)
 
             int w = wui < wuv ? wui : wuv;
@@ -493,28 +707,94 @@ void simulator(Graph G)
             else
                 widest_shortest(i, u, v, du, dv, luv, w, wvi, start, true);
 
-
             // removes event from the list
             // since its fifo, remove from the head        
             calendar.list.erase(calendar.list.begin());
         }
     }
-
-    print_distances(dist);
-    print_parent();
+    output(algoritmo);
 
     auto finish = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double, std::milli> elapsed = finish - start;
-    std::cout << "\nElapsed Time: " << elapsed.count() << " seconds" << std::endl;
+    std::cout << "\n\n\tElapsed Time: " << elapsed.count() << " seconds" << std::endl;
+}
+
+
+// Dijkstra algorithm
+// implementing a destination to source
+void dijkstra_sd(Graph network, int source, int destination)
+{
+    printf("\nDijkstra source [%d] to destination [%d] ", source, destination);
+    std::vector<int> queue;
+
+    // start counting time for simulation
+    auto start = std::chrono::high_resolution_clock::now();
+
+    // initialization
+    // no one has parents at the begin
+    // lenght and width are infinite
+    // only instantiates vector relative to the node that is destination
+    for (int i = 0; i < network.n; i++)
+    {
+        Info dummy = { EDGE_MAX_WIDTH, EDGE_MAX_LENGTH, 0, 0 };
+        
+        queue.push_back(network.nodes[i].id);
+        parent[destination][i] = (-1);
+        dist[destination].push_back(dummy);
+    }
+
+    // if is shortest-widest we must fix the max width
+    // to zero, so that anything found should potencially an improve
+    if (sw)
+        for (int i = 0; i < network.n; i++)
+            dist[i][destination].width = 0;
+
+
+    // for itself, width is max and length is zero
+    dist[destination][destination].width = EDGE_MAX_WIDTH;
+    dist[destination][destination].length = 0;
+
+
+    while (queue.size())
+    {
+        // obter o nó cuja distância é menor
+        // devolve o index da queue onde está o nó, é preciso ir buscá-lo à queue
+        int index = sw ? sw_minimum(queue, destination) : ws_minimum(queue, destination);
+        int u = queue[index];
+        global_iteration++;
+
+        // relaxar cada aresta uv
+        for (int i = 0; i < network.nodes[u].in_edges.size(); i++)
+        {
+            int v = network.nodes[u].in_edges[i].source;            // node (v) which is going to be analised
+
+            int dw = dist[v][destination].width;                    // width of the current path analised
+            int dv = dist[v][destination].length;                   // length dv (from v -> destination)
+            int du = dist[u][destination].length;                   // length du (from u -> destination)
+
+            int luv = network.nodes[u].in_edges[i].length;          // length luv from u -> v
+            int wuv = network.nodes[u].in_edges[i].width;           // width of the current edge analised
+            wuv = wuv < dist[u][destination].width ?                // minimization { w(u); w(uv) }
+                wuv : dist[u][destination].width;
+
+            if (sw)
+                shortest_widest(destination, u, v, du, dv, luv, wuv, dw, start, false);
+            else
+                widest_shortest(destination, u, v, du, dv, luv, dw, wuv, start, false);
+        }
+
+        //remove nó da queue
+        queue.erase(queue.begin() + index);
+    }
+    print_distances(source, destination);
 }
 
 
 // Dijkstra algorithm
 // implementing a destination to all sources search
-// pair<int,int> where [first=width]; [second=lenght]
 void dijkstra(Graph network, Node destination, auto start)
 {
-
+    Info dummy = { EDGE_MAX_WIDTH, EDGE_MAX_LENGTH, 0, 0 };
     std::vector<int> queue;
 
     // initialization
@@ -525,85 +805,50 @@ void dijkstra(Graph network, Node destination, auto start)
     {
         queue.push_back(network.nodes[i].id);
         parent[destination.id][i] = (-1);
-        dist[destination.id].push_back(std::make_pair(EDGE_MAX_WIDTH, EDGE_MAX_LENGHT));
+        dist[destination.id].push_back(dummy);
     }
 
     if (sw)
         for (int i = 0; i < network.n; i++)
-            dist[i][destination.id].first = 0;
+            dist[i][destination.id].width = 0;
 
 
     // for itself, width is max and length is zero
-    dist[destination.id][destination.id].first = EDGE_MAX_WIDTH;
-    dist[destination.id][destination.id].second = 0;
+    dist[destination.id][destination.id].width = EDGE_MAX_WIDTH;
+    dist[destination.id][destination.id].length = 0;
 
-    if (debug)
-    {
-        printf("\nDestination %d", destination.id);
-        print_distances(dist);
-        print_parent();
-    }
 
     int k = 0;
     while (queue.size())
     {
-        if (debug)
-            printf("\n================================================= k=%d", k);
-
-        // obter o n� cuja dist�ncia � menor
-        // devolve o index em que est� o n�, � preciso ir busc�-lo
+        // obter o n� cuja dist�ncia � menor
+        // devolve o index em que est� o n�, � preciso ir busc�-lo
         int index = sw ? sw_minimum(queue, destination.id) : ws_minimum(queue, destination.id);
         int u = queue[index];
-
-        if (debug)
-        {
-            printf("\nfound index %d", index);
-            printf("\nnode %d", u);
-        }
+        global_iteration++;
 
         // relaxar cada aresta uv
         for (int i = 0; i < network.nodes[u].in_edges.size(); i++)
         {
             int v = network.nodes[u].in_edges[i].source;            // node (v) which is going to be analised
 
-            int dw = dist[v][destination.id].first;                 // width of the current path analised
-            int dv = dist[v][destination.id].second;                // length dv (from v -> destination)
-            int du = dist[u][destination.id].second;                // length du (from u -> destination)
+            int dw = dist[v][destination.id].width;                 // width of the current path analised
+            int dv = dist[v][destination.id].length;                // length dv (from v -> destination)
+            int du = dist[u][destination.id].length;                // length du (from u -> destination)
 
             int luv = network.nodes[u].in_edges[i].length;          // length luv from u -> v
             int wuv = network.nodes[u].in_edges[i].width;           // width of the current edge analised
-            wuv = wuv < dist[u][destination.id].first ?             // minimization { w(u); w(uv) }
-                wuv : dist[u][destination.id].first;
-
-            if (debug)
-            {
-                printf("\nestas devem concatenar e ficar com a menor %d vs %d", wuv, dist[u][destination.id].first);
-                printf("\nwidth wuv = %d , dw = %d", wuv, dw);
-            }
+            wuv = wuv < dist[u][destination.id].width ?             // minimization { w(u); w(uv) }
+                wuv : dist[u][destination.id].width;
 
             if (sw)
                 shortest_widest(destination.id, u, v, du, dv, luv, wuv, dw, start, false);
             else
                 widest_shortest(destination.id, u, v, du, dv, luv, dw, wuv, start, false);
-
-
-            if (debug)
-            {
-                print_distances(dist);
-                print_parent();
-            }
         }
 
-        //remove n� da queue
+        // remove analised node from queue
         queue.erase(queue.begin() + index);
-        k++;
-
-        if (debug)
-        {
-            printf("\nQUEUE:");
-            for (int i = 0; i < queue.size(); i++)
-                printf("\t %d", queue[i]);
-        }
     }
 }
 
@@ -612,117 +857,227 @@ void dijkstra(Graph network, Node destination, auto start)
 void dijkstra(Graph network)
 {
     printf("\nDijkstra");
+    std::string algoritmo = sw ? "dijkstra_sw" : "dijkstra_ws";
 
     auto start = std::chrono::high_resolution_clock::now();
     for (int i = network.nodes.size() - 1; i >= 0; i--)
         dijkstra(network, network.nodes[i], start);
+    output(algoritmo);
 
-    print_distances(dist);
-    print_parent();
-
-    // itera��o terminou
-    // show path for each node
     auto finish = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double, std::milli> elapsed = finish - start;
-    std::cout << "\nElapsed Time: " << elapsed.count() << " seconds" << std::endl;
+    std::cout << "\n\n\tElapsed Time: " << elapsed.count() << " seconds" << std::endl;
 }
 
 
-int main() // u0, w1, v2, x3
+void algoritmo(Graph network, Node destination, auto start)
 {
-    print_distances(dist);
-    printf("\n");
+    Info dummy = { 0, EDGE_MAX_LENGTH, 0, 0 };
+    std::vector<int> queue;
 
-    char filename[] = "network.txt";
-    //build_network(filename);
-
-    Edge e1 = { 0, 1, 5, 1 };
-    Edge e2 = { 0, 2, 10, 2 };
-    Edge e3 = { 2, 1, 20, 4 };
-    Edge e4 = { 1, 3, 20, 1 };
-    Edge e5 = { 2, 3, 10, 2 };
-
-    Node u; u.id = 0;
-    Node w; w.id = 1;
-    Node v; v.id = 2;
-    Node x; x.id = 3;
-
-    u.out_edges.push_back(e1);
-    u.out_edges.push_back(e2);
-    v.out_edges.push_back(e3);
-    w.out_edges.push_back(e4);
-    v.out_edges.push_back(e5);
-
-    v.in_edges.push_back(e2);
-    w.in_edges.push_back(e1);
-    w.in_edges.push_back(e3);
-    x.in_edges.push_back(e4);
-    x.in_edges.push_back(e5);
-
-    network.n = 4;
-    network.nodes.push_back(u);
-    network.nodes.push_back(w);
-    network.nodes.push_back(v);
-    network.nodes.push_back(x);
-
-    // matrix with pairs width-length
-    dist.resize(network.n);
+    // create ninja-parent
+    ninja_parent.resize(network.n);
     for (int i = 0; i < dist.size(); i++)
-        for (int j = 0; j < network.n; j++)
-            dist[i].push_back(std::make_pair(EDGE_MAX_WIDTH, EDGE_MAX_LENGHT));
+    {
+        ninja_parent[i].resize(network.n);
+        for(int j=0; j<ninja_parent[i].size(); j++)
+            ninja_parent[i][j].resize(network.n);
+    }
 
-    // matrix with parents for path search
-    parent.resize(network.n);
-    for (int i = 0; i < dist.size(); i++)
-        parent[i].resize(network.n);
+    for (int i = 0; i < ninja_parent.size(); i++)
+        for (int j = 0; j < ninja_parent[i].size(); j++)
+            for(int k=0; k < ninja_parent[i][j].size(); k++)
+                ninja_parent[i][j][k] = -1;
 
 
-    printf("\n>>> Shortest Widest");
-    simulator(network);
-    dist.resize(0);
-    parent.resize(0);
-    // matrix with pairs width-length
-    dist.resize(network.n);
-    for (int i = 0; i < dist.size(); i++)
-        for (int j = 0; j < network.n; j++)
-            dist[i].push_back(std::make_pair(EDGE_MAX_WIDTH, EDGE_MAX_LENGHT));
-    // matrix with parents for path search
-    parent.resize(network.n);
-    for (int i = 0; i < dist.size(); i++)
-        parent[i].resize(network.n);
-    dijkstra(network);
-  
-    dist.resize(0);
-    parent.resize(0);
-    // matrix with pairs width-length
-    dist.resize(network.n);
-    for (int i = 0; i < dist.size(); i++)
-        for (int j = 0; j < network.n; j++)
-            dist[i].push_back(std::make_pair(EDGE_MAX_WIDTH, EDGE_MAX_LENGHT));
-    // matrix with parents for path search
-    parent.resize(network.n);
-    for (int i = 0; i < dist.size(); i++)
-        parent[i].resize(network.n);
+    // initialization of the queue
+    for (int i = 0; i < network.n; i++)
+        queue.push_back(network.nodes[i].id);
+
+    cd.resize(network.n);
+    for (int i = 0; i < network.n; i++)
+        cd[i].resize(network.n);
+
+    for (int i = 0; i < network.n; i++)
+        dist[i][destination.id].width = 0;    
+     
+    // for itself, width is max and length is zero
+    dist[destination.id][destination.id].width = EDGE_MAX_WIDTH;
+    dist[destination.id][destination.id].length = 0;
+
+
+    while (queue.size())
+    {
+
+        // obter o nó cuja distância é menor
+        // devolve o index em que está o nó, é preciso ir buscá-lo
+        int index = sw_minimum(queue, destination.id);
+        int u = queue[index];
+        
+
+        // relaxar cada aresta uv
+        for (int i = 0; i < network.nodes[u].in_edges.size(); i++)
+        {
+            int v = network.nodes[u].in_edges[i].source;            // node (v) which is going to be analised
+
+            int dw = dist[v][destination.id].width;                 // width of the current path analised
+            int dv = dist[v][destination.id].length;                // length dv (from v -> destination)
+            int du = dist[u][destination.id].length;                // length du (from u -> destination)
+
+            int luv = network.nodes[u].in_edges[i].length;          // length luv from u -> v
+            int wuv = network.nodes[u].in_edges[i].width;           // width of the current edge analised
+            wuv = wuv < dist[u][destination.id].width ?             // minimization { w(u); w(uv) }
+                wuv : dist[u][destination.id].width;
+
+           
+            if (cd[u][destination.id].size() < 2)
+            {
+
+                // analisador SW default
+                if (dw < wuv || dw == wuv && dv > du + luv)
+                {
+                    auto finish = std::chrono::high_resolution_clock::now();
+                    std::chrono::duration<double, std::milli> elapsed = finish - start;
+
+                    dist[v][destination.id].width = wuv;
+                    dist[v][destination.id].length = du + luv;
+                    dist[v][destination.id].it = global_iteration;
+                    dist[v][destination.id].time = elapsed.count();
+
+                    // atualiza pai
+                    // não preciso de atualizar dos dois lados, só preciso de usar 
+                    // corretamento o ninja_parent mas esta parte não está a funcionar
+                    // parece-me que a iteração do proxumo destination às vezes reescreve por cima
+                    parent[destination.id][v] = u;
+                    ninja_parent[destination.id][u][v] = destination.id;
+                    
+                    // adiciona aresta encontrada como futuro par candidato
+                    candidate_pair ncp = { wuv, du+luv, u, 0};
+                    cd[v][destination.id].push_back(ncp);
+
+                    // idk
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                }
+            }
+            else
+            {
+                int width = EDGE_MIN_WIDTH;
+                int length = EDGE_MAX_LENGTH;
+                int index = 0;
+
+                // tenho de percorrer cada par dominante e ver qual é escolhido
+                for (int i=0; i<cd[u][destination.id].size(); i++)
+                {
+
+                    // operação de extensão da arestas atual 
+                    // com cada um dos pares candidatos
+                    // minima a largura e soma as distâncias
+                    int candidate_width = cd[u][destination.id][i].width < wuv ? cd[u][destination.id][i].width : wuv;  
+                    int candidate_length = cd[u][destination.id][i].length + luv;                                      
+
+
+                    // which is the optimal path?
+                    if (candidate_width > width ||
+                        candidate_width == width && candidate_length < length)
+                    {
+                        width = candidate_width;
+                        length = candidate_length;
+                        index = i;
+                    }
+                }
+
+                auto finish = std::chrono::high_resolution_clock::now();
+                std::chrono::duration<double, std::milli> elapsed = finish - start;
+
+                // atualiza distância encontrada
+                dist[v][destination.id].width = width;
+                dist[v][destination.id].length = length;
+                dist[v][destination.id].it = global_iteration;
+                dist[v][destination.id].time = elapsed.count();
+
+                // atualiza pai -> deprecated
+                parent[destination.id][v] = u;
+
+
+                // adiciona par candidato
+                // no futuro vai ser apresentado a um nó
+                // e eventualmente pode ser escolhido de entre os seus pares
+                candidate_pair ncp = { width, length, 0, 0 };
+                cd[v][destination.id].push_back(ncp);
+
+
+                // não preciso de atualizar dos dois lados, só preciso de usar 
+                // corretamento o ninja_parent mas esta parte não está a funcionar
+                // parece-me que a iteração do proxumo destination às vezes reescreve por cima
+                ninja_parent[destination.id][v][u];
+                ninja_parent[destination.id][destination.id][u] = cd[u][destination.id][i].label;
+                ninja_parent[destination.id][destination.id][v] = u;
+
+                //idk
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+        }
+
+        // remove analised node from queue
+        queue.erase(queue.begin() + index);
+        global_iteration++;
+    }
+}
+
+void algoritmo()
+{
+    printf("\nAlgorithm");
+    std::string algorithm = sw ? "algoritmo_sw" : "algoritmo_ws";
+
+    auto start = std::chrono::high_resolution_clock::now();
+    for (int k = network.nodes.size() - 1; k >= 0; k--)
+    {
+        algoritmo(network, network.nodes[k], start);
+        for (int i=0; i<network.n; i++)
+            parent[k][i] = ninja_parent[k][k][i];
+    }
+    output(algorithm);
+
+    auto finish = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> elapsed = finish - start;
+    std::cout << "\n\n\tElapsed Time: " << elapsed.count() << " seconds" << std::endl;   
+}
+
+int main() 
+{
+
+    char filename[] = "input/network.txt";
+    build_network(filename);
+
     sw = false;
-
-
+    debug = false;
+    data = true;
+    
+    /* simulator + dijkstra + algoritm */
     printf("\n>>> Widest Shortest");
     simulator(network);
-    dist.resize(0);
-    parent.resize(0);
-    // matrix with pairs width-length
-    dist.resize(network.n);
-    for (int i = 0; i < dist.size(); i++)
-        for (int j = 0; j < network.n; j++)
-            dist[i].push_back(std::make_pair(EDGE_MAX_WIDTH, EDGE_MAX_LENGHT));
-    // matrix with parents for path search
-    parent.resize(network.n);
-    for (int i = 0; i < dist.size(); i++)
-        parent[i].resize(network.n);
-    dijkstra(network);
-   
+    dijkstra(network); 
 
-    
+    sw = true;
+
+    printf("\n>>> Shortest Widest");
+    simulator(network); 
+    dijkstra(network); 
+    algoritmo();
+
+
+    /* interactive mode */
+    int source, destination; 
+    std::cout << "\n\nInput source node: "; 
+    std::cin >> source; 
+
+    std::cout << "Input a destination node: ";
+    std::cin >> destination;
+
+    dijkstra_sd(network, source, destination);
+    simulator_sd(network, source, destination);
+
+
     printf("\n");
     return 0;
 }
