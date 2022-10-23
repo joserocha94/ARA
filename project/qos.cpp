@@ -86,7 +86,8 @@ void ccdf_times(std::string algoritmo)
 
     for (int i=0; i<network.n; i++)
         for (int j=0; j<network.n; j++)
-            outfile << dist[i][j].time <<std::endl;
+            if (dist[i][j].length != EDGE_MAX_LENGTH && dist[i][j].width != EDGE_MAX_WIDTH)
+                outfile << dist[i][j].time <<std::endl;
 
     outfile.close();
 }
@@ -103,7 +104,8 @@ void ccdf_width(std::string algoritmo)
 
     for (int i=0; i<network.n; i++)
         for (int j=0; j<network.n; j++)
-            outfile << dist[i][j].width <<std::endl;
+            if (dist[i][j].length != EDGE_MAX_LENGTH && dist[i][j].width != EDGE_MAX_WIDTH)
+                outfile << dist[i][j].width <<std::endl;
 
     outfile.close();
 }
@@ -120,10 +122,12 @@ void ccdf_length(std::string algoritmo)
 
     for (int i=0; i<network.n; i++)
         for (int j=0; j<network.n; j++)
-            outfile << dist[i][j].length <<std::endl;
+            if (dist[i][j].length != EDGE_MAX_LENGTH && dist[i][j].width != EDGE_MAX_WIDTH)
+                outfile << dist[i][j].length <<std::endl;
 
     outfile.close();
 }
+
 
 /* função ccdf para execução de todas as funções ccdf*/
 void ccdf(std::string algoritmo)
